@@ -1,3 +1,5 @@
+====LIVE SERVER https://stockflowinventoryy.netlify.app/ ===============
+
 # StockFlow
 
 Multi-tenant inventory management SaaS. Each signed-up user gets their own organization, and
