@@ -35,19 +35,58 @@ export type Database = {
           id: string;
           organization_id: string;
           email: string;
+          role: string;
           created_at: string;
         };
         Insert: {
           id: string;
           organization_id: string;
           email: string;
+          role?: string;
           created_at?: string;
         };
         Update: {
           id?: string;
           organization_id?: string;
           email?: string;
+          role?: string;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      organization_invites: {
+        Row: {
+          id: string;
+          organization_id: string;
+          code: string;
+          role: string;
+          created_by: string | null;
+          created_at: string;
+          expires_at: string | null;
+          used_by: string | null;
+          used_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          code: string;
+          role?: string;
+          created_by?: string | null;
+          created_at?: string;
+          expires_at?: string | null;
+          used_by?: string | null;
+          used_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          code?: string;
+          role?: string;
+          created_by?: string | null;
+          created_at?: string;
+          expires_at?: string | null;
+          used_by?: string | null;
+          used_at?: string | null;
         };
         Relationships: [];
       };
@@ -96,6 +135,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      stock_movements: {
+        Row: {
+          id: string;
+          organization_id: string;
+          product_id: string;
+          user_id: string | null;
+          delta: number;
+          quantity_after: number;
+          reason: string;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          product_id: string;
+          user_id?: string | null;
+          delta: number;
+          quantity_after: number;
+          reason?: string;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          product_id?: string;
+          user_id?: string | null;
+          delta?: number;
+          quantity_after?: number;
+          reason?: string;
+          note?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -103,8 +178,12 @@ export type Database = {
         Args: Record<string, never>;
         Returns: string;
       };
+      current_user_role: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
       adjust_stock: {
-        Args: { p_product_id: string; p_delta: number };
+        Args: { p_product_id: string; p_delta: number; p_note?: string | null };
         Returns: number;
       };
     };

@@ -89,7 +89,7 @@ export function AdjustStockDialog({
             label="Note"
             htmlFor="adjust-note"
             error={errors.note?.message}
-            hint="The note is for your reference in this dialog only."
+            hint="Saved with this change in the product's stock history."
           >
             <Input id="adjust-note" placeholder="Optional" {...register("note")} />
           </Field>

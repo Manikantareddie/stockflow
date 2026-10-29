@@ -1,10 +1,16 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { effectiveThreshold, isLowStock } from "@/lib/inventory";
-import type { Organization, Product, Profile, StockFilter } from "@/lib/types";
+import { effectiveThreshold, isLowStock, topProductsByValue, valuateInventory } from "@/lib/inventory";
+import type {
+  Organization,
+  OrganizationInvite,
+  Product,
+  Profile,
+  StockFilter,
+} from "@/lib/types";
 
 export { effectiveThreshold, isLowStock };
-export type { Organization, Product, Profile, StockFilter };
+export type { Organization, OrganizationInvite, Product, Profile, StockFilter };
 
 export async function requireSession() {
   const supabase = await createClient();
@@ -89,6 +95,48 @@ export async function getDashboardData() {
   const totalProducts = products.length;
   const totalUnits = products.reduce((sum, p) => sum + p.quantity_on_hand, 0);
   const lowStockProducts = products.filter((p) => isLowStock(p, organization));
+  const valuation = valuateInventory(products);
+  const topByValue = topProductsByValue(products, 5);
 
-  return { organization, totalProducts, totalUnits, lowStockProducts };
+  return { organization, totalProducts, totalUnits, lowStockProducts, valuation, topByValue };
+}
+
+export async function getTeamData() {
+  const { supabase, organization, profile, user } = await getCurrentContext();
+
+  const { data: members, error: membersError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("organization_id", organization.id)
+    .order("created_at", { ascending: true });
+
+  if (membersError) {
+    throw new Error("Unable to load team members.");
+  }
+
+  const isOwner = profile.role === "owner";
+  let invites: OrganizationInvite[] = [];
+
+  if (isOwner) {
+    const { data, error } = await supabase
+      .from("organization_invites")
+      .select("*")
+      .eq("organization_id", organization.id)
+      .is("used_by", null)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw new Error("Unable to load invite codes.");
+    }
+
+    invites = (data ?? []) as OrganizationInvite[];
+  }
+
+  return {
+    organization,
+    currentUserId: user.id,
+    isOwner,
+    members: (members ?? []) as Profile[],
+    invites,
+  };
 }

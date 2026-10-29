@@ -12,9 +12,34 @@ export const signupSchema = z
     organizationName: z
       .string()
       .trim()
-      .min(2, "Organization name must be at least 2 characters")
       .max(60, "Organization name must be at most 60 characters"),
+    inviteCode: z.string().trim().max(20, "Invite code is too long"),
     email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, "Please confirm your password"),
+  })
+  .refine((data) => data.inviteCode.length > 0 || data.organizationName.length >= 2, {
+    message: "Organization name must be at least 2 characters",
+    path: ["organizationName"],
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+export const memberRoleSchema = z.enum(["owner", "member"]);
+
+export const loginSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1, "Password is required"),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+
+export const updatePasswordSchema = z
+  .object({
     password: passwordSchema,
     confirmPassword: z.string().min(1, "Please confirm your password"),
   })
@@ -22,11 +47,6 @@ export const signupSchema = z
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
-
-export const loginSchema = z.object({
-  email: emailSchema,
-  password: z.string().min(1, "Password is required"),
-});
 
 const INT_MAX = 2147483647;
 const MONEY_MAX = 9999999999.99;
@@ -80,6 +100,8 @@ export const thresholdSchema = z.object({
 
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
 export type ProductInput = z.infer<typeof productSchema>;
 export type StockAdjustmentInput = z.infer<typeof stockAdjustmentSchema>;
 export type ThresholdInput = z.infer<typeof thresholdSchema>;

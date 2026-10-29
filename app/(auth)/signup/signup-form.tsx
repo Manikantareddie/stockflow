@@ -29,12 +29,27 @@ export function SignupForm() {
         label="Organization name"
         htmlFor="organizationName"
         error={errors.organizationName?.message}
+        hint="Skip this if you were given an invite code below."
       >
         <Input
           id="organizationName"
           placeholder="Acme Supplies"
           autoComplete="organization"
           {...register("organizationName")}
+        />
+      </Field>
+
+      <Field
+        label="Invite code"
+        htmlFor="inviteCode"
+        error={errors.inviteCode?.message}
+        hint="Join an existing team instead of creating a new organization."
+      >
+        <Input
+          id="inviteCode"
+          placeholder="Optional"
+          autoComplete="off"
+          {...register("inviteCode")}
         />
       </Field>
 

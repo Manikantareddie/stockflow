@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, LogOut } from "lucide-react";
+import { useTransition } from "react";
+import { ChevronDown, Loader2, LogOut } from "lucide-react";
 import { logoutAction } from "@/app/auth/actions";
 import {
   DropdownMenu,
@@ -12,6 +13,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function UserMenu({ email }: { email: string }) {
+  const [isPending, startTransition] = useTransition();
+
+  const handleLogout = () => {
+    startTransition(async () => {
+      await logoutAction();
+    });
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground hover:bg-background">
@@ -21,14 +30,21 @@ export function UserMenu({ email }: { email: string }) {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="truncate">{email}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <form action={logoutAction}>
-          <DropdownMenuItem asChild>
-            <button type="submit" className="w-full">
-              <LogOut className="h-4 w-4" />
-              Log out
-            </button>
-          </DropdownMenuItem>
-        </form>
+        <DropdownMenuItem
+          disabled={isPending}
+          onSelect={(e) => {
+            e.preventDefault();
+            handleLogout();
+          }}
+          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+        >
+          {isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4" />
+          )}
+          {isPending ? "Logging out..." : "Log out"}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

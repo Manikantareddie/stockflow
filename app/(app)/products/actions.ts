@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentContext } from "@/lib/data";
+import { type CsvRowError, mapProductRows, parseCsv } from "@/lib/csv";
+import { type TablesInsert } from "@/lib/database.types";
+import { type StockMovement } from "@/lib/types";
 import {
   productSchema,
   toNumber,
@@ -166,6 +169,7 @@ export async function adjustStockAction(
   const { data, error } = await supabase.rpc("adjust_stock", {
     p_product_id: productId,
     p_delta: toNumber(parsed.data.delta),
+    p_note: parsed.data.note === "" ? null : parsed.data.note,
   });
 
   if (error) {
@@ -220,4 +224,125 @@ export async function exportProductsCsvAction(): Promise<{ ok: boolean; csv?: st
 
   const csv = [header.join(","), ...rows.map((r) => r.join(","))].join("\r\n") + "\r\n";
   return { ok: true, csv };
+}
+
+export type CsvImportResult = ActionResult & {
+  imported?: number;
+  rowErrors?: CsvRowError[];
+};
+
+export async function importProductsCsvAction(csvText: string): Promise<CsvImportResult> {
+  const { products: candidates, errors: structureErrors } = mapProductRows(parseCsv(csvText));
+
+  if (structureErrors.length > 0) {
+    return { ok: false, error: structureErrors[0].message, rowErrors: structureErrors };
+  }
+
+  if (candidates.length === 0) {
+    return { ok: false, error: "No data rows were found in the file." };
+  }
+
+  const { supabase, organization, user } = await getCurrentContext();
+
+  const { data: existing, error: existingError } = await supabase.from("products").select("sku");
+
+  if (existingError) {
+    return { ok: false, error: "Unable to read your existing products. Please try again." };
+  }
+
+  const existingSkus = new Set((existing ?? []).map((product) => product.sku));
+  const seenSkus = new Set<string>();
+  const rowErrors: CsvRowError[] = [];
+  const inserts: TablesInsert<"products">[] = [];
+
+  for (const row of candidates) {
+    const parsed = productSchema.safeParse(row);
+    if (!parsed.success) {
+      rowErrors.push({
+        line: row.line,
+        message: parsed.error.issues[0]?.message ?? "Invalid row.",
+      });
+      continue;
+    }
+
+    const data = parsed.data;
+    if (existingSkus.has(data.sku)) {
+      rowErrors.push({ line: row.line, message: `SKU "${data.sku}" already exists.` });
+      continue;
+    }
+    if (seenSkus.has(data.sku)) {
+      rowErrors.push({ line: row.line, message: `SKU "${data.sku}" is duplicated in the file.` });
+      continue;
+    }
+
+    seenSkus.add(data.sku);
+    inserts.push({
+      organization_id: organization.id,
+      name: data.name,
+      sku: data.sku,
+      description: data.description === "" ? null : data.description,
+      quantity_on_hand: toNumber(data.quantity_on_hand),
+      cost_price: toNumberOrNull(data.cost_price),
+      selling_price: toNumberOrNull(data.selling_price),
+      low_stock_threshold: toNumberOrNull(data.low_stock_threshold),
+      last_updated_by: user.id,
+    });
+  }
+
+  if (inserts.length === 0) {
+    return {
+      ok: false,
+      error: `No rows could be imported. ${rowErrors.length} row${
+        rowErrors.length === 1 ? "" : "s"
+      } need attention.`,
+      rowErrors,
+    };
+  }
+
+  const { error } = await supabase.from("products").insert(inserts);
+
+  if (error) {
+    if (error.code === "23505") {
+      return {
+        ok: false,
+        error: "A product with one of these SKUs already exists in your organization.",
+        rowErrors,
+      };
+    }
+    return { ok: false, error: "Unable to import products. Please try again.", rowErrors };
+  }
+
+  revalidateInventory();
+  return {
+    ok: true,
+    imported: inserts.length,
+    rowErrors,
+    message: `Imported ${inserts.length} product${inserts.length === 1 ? "" : "s"}.`,
+  };
+}
+
+export type ProductMovementsResult = {
+  ok: boolean;
+  error?: string;
+  movements?: StockMovement[];
+};
+
+export async function getProductMovementsAction(
+  productId: string,
+): Promise<ProductMovementsResult> {
+  const { supabase, organization } = await getCurrentContext();
+
+  const { data, error } = await supabase
+    .from("stock_movements")
+    .select("*")
+    .eq("product_id", productId)
+    .eq("organization_id", organization.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    return { ok: false, error: "Unable to load stock history. Please try again." };
+  }
+
+  return { ok: true, movements: (data ?? []) as StockMovement[] };
 }

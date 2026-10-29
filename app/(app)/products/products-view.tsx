@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
+import { History, MoreHorizontal, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
 import { effectiveThreshold, isLowStock } from "@/lib/inventory";
 import type { Organization, Product, StockFilter } from "@/lib/types";
 import {
@@ -10,6 +10,7 @@ import {
   createProductAction,
   deleteProductAction,
   exportProductsCsvAction,
+  importProductsCsvAction,
   updateProductAction,
 } from "./actions";
 import type { ProductInput, StockAdjustmentInput } from "@/lib/validations";
@@ -35,6 +36,8 @@ import { ProductsToolbar } from "./products-toolbar";
 import { ProductFormDialog } from "./product-form-dialog";
 import { AdjustStockDialog } from "./adjust-stock-dialog";
 import { DeleteProductDialog } from "./delete-product-dialog";
+import { ImportProductsDialog } from "./import-products-dialog";
+import { MovementHistoryDialog } from "./movement-history-dialog";
 
 function formatMoney(value: number | null): string {
   if (value === null) return "—";
@@ -72,7 +75,22 @@ export function ProductsView({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
 
+  const [historyTarget, setHistoryTarget] = useState<Product | null>(null);
+
   const [exporting, setExporting] = useState(false);
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [importRowErrors, setImportRowErrors] = useState<{ line: number; message: string }[]>([]);
+  const [importPending, setImportPending] = useState(false);
+
+  function openImport() {
+    setImportError(null);
+    setImportSuccess(null);
+    setImportRowErrors([]);
+    setImportOpen(true);
+  }
 
   function openCreate() {
     setEditing(null);
@@ -182,6 +200,33 @@ export function ProductsView({
     URL.revokeObjectURL(url);
   }
 
+  async function handleImport(csvText: string) {
+    setImportPending(true);
+    setImportError(null);
+    setImportSuccess(null);
+    setImportRowErrors([]);
+
+    const result = await importProductsCsvAction(csvText);
+
+    setImportPending(false);
+    setImportRowErrors(result.rowErrors ?? []);
+
+    if (!result.ok) {
+      setImportError(result.error ?? "Unable to import products.");
+      return;
+    }
+
+    setImportSuccess(
+      result.rowErrors && result.rowErrors.length > 0
+        ? `${result.message} ${result.rowErrors.length} row${
+            result.rowErrors.length === 1 ? "" : "s"
+          } were skipped.`
+        : (result.message ?? "Products imported."),
+    );
+    setFlash(result.message ?? "Products imported.");
+    router.refresh();
+  }
+
   const hasAnyProducts = products.length > 0;
   const filtering = Boolean(search) || filter !== "all";
 
@@ -201,6 +246,7 @@ export function ProductsView({
         filter={filter}
         onNewProduct={openCreate}
         onExport={handleExport}
+        onImport={openImport}
         exporting={exporting}
       />
 
@@ -259,6 +305,10 @@ export function ProductsView({
                             <DropdownMenuItem onSelect={() => openAdjust(product)}>
                               <SlidersHorizontal className="h-4 w-4" />
                               Adjust stock
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setHistoryTarget(product)}>
+                              <History className="h-4 w-4" />
+                              View history
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onSelect={() => {
@@ -338,6 +388,31 @@ export function ProductsView({
         onConfirm={handleDelete}
         error={deleteError}
         pending={deletePending}
+      />
+
+      <ImportProductsDialog
+        open={importOpen}
+        onOpenChange={(open) => {
+          setImportOpen(open);
+          if (!open) {
+            setImportError(null);
+            setImportSuccess(null);
+            setImportRowErrors([]);
+          }
+        }}
+        onSubmit={handleImport}
+        error={importError}
+        success={importSuccess}
+        rowErrors={importRowErrors}
+        pending={importPending}
+      />
+
+      <MovementHistoryDialog
+        open={historyTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setHistoryTarget(null);
+        }}
+        product={historyTarget}
       />
     </div>
   );

@@ -19,12 +19,14 @@ export function ProductsToolbar({
   filter,
   onNewProduct,
   onExport,
+  onImport,
   exporting,
 }: {
   search: string;
   filter: StockFilter;
   onNewProduct: () => void;
   onExport: () => void;
+  onImport: () => void;
   exporting: boolean;
 }) {
   const router = useRouter();
@@ -82,6 +84,9 @@ export function ProductsToolbar({
       </div>
 
       <div className="flex items-center gap-2">
+        <Button variant="outline" onClick={onImport}>
+          Import CSV
+        </Button>
         <Button variant="outline" onClick={onExport} disabled={exporting}>
           {exporting ? "Exporting..." : "Export CSV"}
         </Button>

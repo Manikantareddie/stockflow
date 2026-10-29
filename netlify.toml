@@ -1,0 +1,14 @@
+# Netlify deployment configuration for StockFlow.
+#
+# Next.js 15 (App Router) is deployed with Netlify's Next.js Runtime, which is
+# installed automatically for detected Next.js projects. The adapter version is
+# deliberately not pinned here, so Netlify keeps it up to date on every build.
+#
+# No `publish` directory is set: the runtime provisions the SSR function, the
+# middleware edge function, and the static assets itself.
+
+[build]
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "24"

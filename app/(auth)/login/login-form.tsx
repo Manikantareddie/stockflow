@@ -38,6 +38,13 @@ export function LoginForm() {
         <Input id="password" type="password" autoComplete="current-password" {...register("password")} />
       </Field>
 
+      <Link
+        href="/forgot-password"
+        className="-mt-2 self-end text-sm font-medium text-primary hover:underline"
+      >
+        Forgot password?
+      </Link>
+
       <Button type="submit" disabled={pending} className="w-full">
         {pending ? "Logging in..." : "Log in"}
       </Button>
